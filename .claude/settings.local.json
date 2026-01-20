@@ -15,7 +15,8 @@
       "Bash(timeout /t 3 /nobreak)",
       "Bash(curl:*)",
       "Bash(npm install:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx kill-port:*)"
     ]
   }
 }

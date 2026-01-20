@@ -109,6 +109,11 @@ app.use((req, res, next) => {
 
 // Middleware d'authentification API (optionnel)
 const apiKeyAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Exclure les callbacks de l'authentification (appelés par les providers externes)
+  if (req.path.startsWith('/callback')) {
+    return next();
+  }
+
   const apiKey = req.get('X-API-Key');
   const secretKey = process.env.API_SECRET_KEY;
 
