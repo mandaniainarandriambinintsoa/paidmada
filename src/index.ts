@@ -12,6 +12,7 @@ export { MVolaProvider } from './providers/mvola';
 export { OrangeMoneyProvider } from './providers/orange-money';
 export { AirtelMoneyProvider } from './providers/airtel-money';
 export { BaseProvider } from './providers/base';
+export { MockProvider } from './providers/mock';
 
 // Types
 export {
@@ -22,6 +23,7 @@ export {
 
   // Configuration
   PaidMadaConfig,
+  MockModeConfig,
   MVolaConfig,
   OrangeMoneyConfig,
   AirtelMoneyConfig,

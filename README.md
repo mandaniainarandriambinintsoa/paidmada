@@ -231,6 +231,51 @@ Exemple de payload callback:
 }
 ```
 
+## Mode Mock (Tests sans credentials)
+
+Le mode mock permet de tester l'API sans avoir de credentials réels. Tous les appels sont simulés localement.
+
+### Activer le mode mock
+
+Dans votre `.env` :
+```env
+MOCK_MODE=true
+MOCK_SUCCESS_RATE=90          # Taux de succès (0-100), défaut: 90
+MOCK_RESPONSE_DELAY=0         # Délai en ms (0 = aléatoire 500-1500ms)
+MOCK_SIMULATE_PENDING=true    # Simule d'abord "pending" puis le résultat final
+```
+
+### Via le SDK
+
+```typescript
+const paidmada = new PaidMada({
+  callbackBaseUrl: 'http://localhost:3000/api/callback',
+  mockMode: {
+    enabled: true,
+    successRate: 90,        // 90% de succès
+    responseDelay: 1000,    // 1 seconde de délai
+    simulatePending: true   // Statut pending avant résultat final
+  }
+});
+
+// Utilisation normale - les appels sont simulés
+const result = await paidmada.smartPay('0341234567', 10000);
+console.log(result);
+// {
+//   success: true,
+//   provider: 'mvola',
+//   transactionId: 'MOCK-xxx',
+//   status: 'pending'
+// }
+```
+
+### Comportement du mock
+
+1. **Tous les providers sont disponibles** - MVola, Orange Money, Airtel Money
+2. **Les transactions sont stockées en mémoire** - Vous pouvez vérifier le statut
+3. **Le statut évolue automatiquement** - De `pending` vers `success` ou `failed` après 3 secondes
+4. **Taux de succès configurable** - Par défaut 90% de succès
+
 ## Sandbox / Test
 
 En mode sandbox (`NODE_ENV=development`), utilisez les numéros de test:

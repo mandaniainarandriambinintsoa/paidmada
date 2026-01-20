@@ -17,13 +17,19 @@ import {
 import { MVolaProvider } from './providers/mvola';
 import { OrangeMoneyProvider } from './providers/orange-money';
 import { AirtelMoneyProvider } from './providers/airtel-money';
+import { MockProvider } from './providers/mock';
 import { BaseProvider } from './providers/base';
 import { validatePhone } from './utils/phone';
 import { logger } from './utils/logger';
 
+// Type unifié pour les providers (réels ou mock)
+type AnyProvider = BaseProvider | MockProvider;
+
 export class PaidMada {
-  private providers: Map<Provider, BaseProvider> = new Map();
+  private providers: Map<Provider, AnyProvider> = new Map();
+  private mockProviders: Map<Provider, MockProvider> = new Map();
   private config: PaidMadaConfig;
+  private isMockMode: boolean = false;
 
   constructor(config: PaidMadaConfig) {
     this.config = config;
@@ -35,6 +41,13 @@ export class PaidMada {
    */
   private initializeProviders(): void {
     const sandbox = this.config.sandbox ?? true;
+
+    // Mode Mock activé ?
+    if (this.config.mockMode?.enabled) {
+      this.isMockMode = true;
+      this.initializeMockProviders();
+      return;
+    }
 
     // MVola
     if (this.config.mvola) {
@@ -73,9 +86,46 @@ export class PaidMada {
   }
 
   /**
+   * Initialise les mock providers pour tous les opérateurs
+   */
+  private initializeMockProviders(): void {
+    const mockConfig = this.config.mockMode!;
+
+    logger.info('========================================');
+    logger.info('  MODE MOCK ACTIF - Aucun appel réel');
+    logger.info('========================================');
+
+    // Créer un mock pour chaque provider
+    const allProviders = [Provider.MVOLA, Provider.ORANGE_MONEY, Provider.AIRTEL_MONEY];
+
+    for (const provider of allProviders) {
+      const mock = new MockProvider({
+        provider,
+        successRate: mockConfig.successRate,
+        responseDelay: mockConfig.responseDelay,
+        simulatePending: mockConfig.simulatePending
+      });
+      this.providers.set(provider, mock);
+      this.mockProviders.set(provider, mock);
+    }
+
+    logger.info('All mock providers initialized', {
+      successRate: mockConfig.successRate ?? 90,
+      simulatePending: mockConfig.simulatePending ?? true
+    });
+  }
+
+  /**
+   * Vérifie si le mode mock est actif
+   */
+  isInMockMode(): boolean {
+    return this.isMockMode;
+  }
+
+  /**
    * Obtient un provider
    */
-  private getProvider(provider: Provider): BaseProvider {
+  private getProvider(provider: Provider): AnyProvider {
     const p = this.providers.get(provider);
     if (!p) {
       throw new PaymentError(

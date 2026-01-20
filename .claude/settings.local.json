@@ -7,7 +7,9 @@
       "WebFetch(domain:github.com)",
       "Bash(git init:*)",
       "Bash(gh auth:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh repo create:*)"
     ]
   }
 }

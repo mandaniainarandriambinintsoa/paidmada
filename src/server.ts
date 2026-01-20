@@ -19,29 +19,38 @@ dotenv.config();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_SANDBOX = NODE_ENV !== 'production';
+const MOCK_MODE = process.env.MOCK_MODE === 'true';
 
 // Créer l'instance PaidMada
 const paidmada = new PaidMada({
   sandbox: IS_SANDBOX,
   callbackBaseUrl: process.env.CALLBACK_BASE_URL || `http://localhost:${PORT}/api/callback`,
 
-  // MVola
-  mvola: process.env.MVOLA_CONSUMER_KEY ? {
+  // Mode Mock (pour tester sans credentials)
+  mockMode: MOCK_MODE ? {
+    enabled: true,
+    successRate: parseInt(process.env.MOCK_SUCCESS_RATE || '90'),
+    responseDelay: parseInt(process.env.MOCK_RESPONSE_DELAY || '0'),
+    simulatePending: process.env.MOCK_SIMULATE_PENDING !== 'false'
+  } : undefined,
+
+  // MVola (ignoré si mock mode actif)
+  mvola: !MOCK_MODE && process.env.MVOLA_CONSUMER_KEY ? {
     consumerKey: process.env.MVOLA_CONSUMER_KEY,
     consumerSecret: process.env.MVOLA_CONSUMER_SECRET!,
     merchantNumber: process.env.MVOLA_MERCHANT_NUMBER!,
     partnerName: process.env.MVOLA_PARTNER_NAME!
   } : undefined,
 
-  // Orange Money
-  orangeMoney: process.env.ORANGE_CLIENT_ID ? {
+  // Orange Money (ignoré si mock mode actif)
+  orangeMoney: !MOCK_MODE && process.env.ORANGE_CLIENT_ID ? {
     clientId: process.env.ORANGE_CLIENT_ID,
     clientSecret: process.env.ORANGE_CLIENT_SECRET!,
     merchantKey: process.env.ORANGE_MERCHANT_KEY!
   } : undefined,
 
-  // Airtel Money
-  airtelMoney: process.env.AIRTEL_CLIENT_ID ? {
+  // Airtel Money (ignoré si mock mode actif)
+  airtelMoney: !MOCK_MODE && process.env.AIRTEL_CLIENT_ID ? {
     clientId: process.env.AIRTEL_CLIENT_ID,
     clientSecret: process.env.AIRTEL_CLIENT_SECRET!,
     publicKey: process.env.AIRTEL_PUBLIC_KEY!
@@ -196,18 +205,19 @@ app.use((req, res) => {
 
 // Démarrer le serveur
 app.listen(PORT, () => {
+  const modeInfo = MOCK_MODE ? 'MOCK (simulation)' : NODE_ENV;
   logger.info(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║   PaidMada API Server                                     ║
 ║   Version: 1.0.0                                          ║
-║   Environment: ${NODE_ENV.padEnd(40)}║
+║   Environment: ${modeInfo.padEnd(40)}║
 ║   Port: ${String(PORT).padEnd(48)}║
 ║                                                           ║
 ║   Providers actifs:                                       ║
 ║   ${paidmada.getAvailableProviders().join(', ').padEnd(53)}║
 ║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
+${MOCK_MODE ? '║   ⚠️  MODE MOCK: Aucun appel réel aux providers          ║\n║                                                           ║\n' : ''}╚═══════════════════════════════════════════════════════════╝
   `);
 });
 

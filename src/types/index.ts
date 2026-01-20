@@ -49,12 +49,25 @@ export interface AirtelMoneyConfig {
   sandbox?: boolean;
 }
 
+export interface MockModeConfig {
+  /** Active le mode mock pour tous les providers */
+  enabled: boolean;
+  /** Taux de succès en pourcentage (défaut: 90) */
+  successRate?: number;
+  /** Délai de réponse simulé en ms (0 = aléatoire 500-1500ms) */
+  responseDelay?: number;
+  /** Simule le statut pending avant le résultat final */
+  simulatePending?: boolean;
+}
+
 export interface PaidMadaConfig {
   mvola?: MVolaConfig;
   orangeMoney?: OrangeMoneyConfig;
   airtelMoney?: AirtelMoneyConfig;
   callbackBaseUrl: string;
   sandbox?: boolean;
+  /** Mode mock pour tester sans credentials */
+  mockMode?: MockModeConfig;
 }
 
 // ============ REQUÊTES ============
