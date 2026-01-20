@@ -329,10 +329,156 @@ PaidMada/
 
 ## Sécurité
 
-- Toujours utiliser HTTPS en production
-- Configurer `API_SECRET_KEY` pour protéger l'API
-- Ne jamais exposer les credentials dans le code
-- Valider les callbacks avec les signatures fournies par les providers
+PaidMada intègre plusieurs couches de sécurité pour protéger votre API de paiement.
+
+### Authentification API
+
+Toutes les requêtes API (sauf les callbacks) nécessitent une clé API :
+
+```bash
+curl -X POST http://localhost:3000/api/pay/smart \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: votre_cle_api" \
+  -d '{"phone": "0341234567", "amount": 10000}'
+```
+
+Configuration :
+```env
+API_SECRET_KEY=votre_cle_secrete_longue_et_aleatoire
+```
+
+**Caractéristiques :**
+- Comparaison timing-safe (protection contre les timing attacks)
+- Logging des tentatives d'accès non autorisées
+- Les callbacks sont exclus (appelés par les providers externes)
+
+### Protection CORS
+
+```env
+# En production, spécifier les origines autorisées
+ALLOWED_ORIGINS=https://votresite.com,https://app.votresite.com
+```
+
+- En production : seules les origines configurées sont autorisées
+- CORS bloqué si `ALLOWED_ORIGINS` non configuré en production
+- Warning dans les logs si mal configuré
+
+### Validation des Callbacks
+
+Les callbacks des providers sont protégés par plusieurs mécanismes :
+
+#### 1. Validation Zod
+Tous les payloads sont validés avec des schémas stricts :
+```typescript
+// Exemple: seuls les champs attendus sont acceptés
+const MVolaCallbackSchema = z.object({
+  transactionReference: z.string(),
+  status: z.string(),
+  amount: z.union([z.string(), z.number()]),
+  // ...
+});
+```
+
+#### 2. Vérification de Signature HMAC (optionnel)
+```env
+MVOLA_CALLBACK_SECRET=votre_secret_mvola
+ORANGE_CALLBACK_SECRET=votre_secret_orange
+AIRTEL_CALLBACK_SECRET=votre_secret_airtel
+```
+
+Les signatures sont vérifiées avec une comparaison timing-safe.
+
+#### 3. Whitelist d'IPs (optionnel)
+```env
+MVOLA_ALLOWED_IPS=197.149.xxx.xxx,197.149.xxx.xxx
+ORANGE_ALLOWED_IPS=41.188.xxx.xxx
+AIRTEL_ALLOWED_IPS=41.79.xxx.xxx
+```
+
+### Protection XSS
+
+Les callbacks de redirection Orange (return/cancel) sont protégés contre les injections XSS :
+
+- **Whitelist de champs** : seuls `order_id`, `status`, `txnid`, `amount` sont acceptés
+- **Sanitization** : caractères spéciaux supprimés
+- **Limite de longueur** : max 100 caractères par champ
+- **Headers de sécurité** : `X-Content-Type-Options: nosniff`
+
+```env
+# Origine autorisée pour postMessage
+CALLBACK_ALLOWED_ORIGIN=https://votresite.com
+```
+
+### Masquage des Données Sensibles
+
+Les logs ne contiennent jamais de données sensibles :
+
+```typescript
+// Ces champs sont automatiquement masqués dans les logs :
+// - password, secret, token, accessToken
+// - consumerKey, consumerSecret, clientSecret
+// - apiKey, privateKey, publicKey, pin
+```
+
+Exemple de log :
+```
+[mvola] Request: POST /token
+{ data: { consumerKey: '***MASKED***', consumerSecret: '***MASKED***' } }
+```
+
+### Rate Limiting
+
+Protection contre les abus :
+```
+- 100 requêtes par 15 minutes par IP
+- Message d'erreur personnalisé en cas de dépassement
+```
+
+### Checklist Sécurité Production
+
+```
+[ ] HTTPS activé (certificat SSL)
+[ ] API_SECRET_KEY configuré (clé forte, min 32 caractères)
+[ ] ALLOWED_ORIGINS configuré (pas de wildcard)
+[ ] CALLBACK_ALLOWED_ORIGIN configuré
+[ ] Variables sensibles dans .env (jamais dans le code)
+[ ] Logs en mode 'error' uniquement
+[ ] Rate limiting adapté à votre trafic
+[ ] IPs des providers whitelistées (si connues)
+[ ] Secrets de callback configurés (si fournis par les providers)
+```
+
+### Variables d'Environnement Sécurité
+
+```env
+# === OBLIGATOIRE EN PRODUCTION ===
+API_SECRET_KEY=cle_secrete_min_32_caracteres
+ALLOWED_ORIGINS=https://votresite.com
+
+# === RECOMMANDÉ ===
+CALLBACK_ALLOWED_ORIGIN=https://votresite.com
+
+# === OPTIONNEL (si fourni par les providers) ===
+MVOLA_CALLBACK_SECRET=secret_mvola
+ORANGE_CALLBACK_SECRET=secret_orange
+AIRTEL_CALLBACK_SECRET=secret_airtel
+
+# === OPTIONNEL (IPs des providers) ===
+MVOLA_ALLOWED_IPS=ip1,ip2
+ORANGE_ALLOWED_IPS=ip1,ip2
+AIRTEL_ALLOWED_IPS=ip1,ip2
+```
+
+### Vulnérabilités Corrigées
+
+| Vulnérabilité | Status | Protection |
+|---------------|--------|------------|
+| XSS (Cross-Site Scripting) | ✅ Corrigé | Sanitization + whitelist |
+| Timing Attacks | ✅ Corrigé | Comparaison timing-safe |
+| Callbacks Frauduleux | ✅ Corrigé | Zod + Signature + IP whitelist |
+| Secrets dans Logs | ✅ Corrigé | Masquage automatique |
+| CORS Permissif | ✅ Corrigé | Blocage si non configuré |
+| Injection | ✅ Protégé | Validation Zod stricte |
 
 ## Licence
 
