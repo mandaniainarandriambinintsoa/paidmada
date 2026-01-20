@@ -46,6 +46,12 @@ export function createHmacSignature(data: string, secret: string): string {
  */
 export function verifyHmacSignature(data: string, signature: string, secret: string): boolean {
   const expectedSignature = createHmacSignature(data, secret);
+
+  // Vérifier d'abord la longueur pour éviter RangeError avec timingSafeEqual
+  if (signature.length !== expectedSignature.length) {
+    return false;
+  }
+
   return crypto.timingSafeEqual(
     Buffer.from(signature),
     Buffer.from(expectedSignature)
