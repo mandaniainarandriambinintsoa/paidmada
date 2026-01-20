@@ -13,6 +13,7 @@ import {
   PaymentError
 } from '../types';
 import { logger } from '../utils/logger';
+import { maskSensitiveData } from '../utils/crypto';
 
 export abstract class BaseProvider {
   protected abstract provider: Provider;
@@ -31,32 +32,37 @@ export abstract class BaseProvider {
       }
     });
 
-    // Intercepteur pour logger les requêtes
+    // Intercepteur pour logger les requêtes (données sensibles masquées)
     this.httpClient.interceptors.request.use(
       (config) => {
         logger.debug(`[${this.provider}] Request: ${config.method?.toUpperCase()} ${config.url}`, {
           headers: this.sanitizeHeaders(config.headers as Record<string, string>),
-          data: config.data
+          // Masquer les données sensibles dans les logs
+          data: maskSensitiveData(config.data)
         });
         return config;
       },
       (error) => {
-        logger.error(`[${this.provider}] Request error:`, error);
+        logger.error(`[${this.provider}] Request error:`, {
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
         return Promise.reject(error);
       }
     );
 
-    // Intercepteur pour logger les réponses
+    // Intercepteur pour logger les réponses (données sensibles masquées)
     this.httpClient.interceptors.response.use(
       (response) => {
         logger.debug(`[${this.provider}] Response: ${response.status}`, {
-          data: response.data
+          // Masquer les tokens et données sensibles dans les réponses
+          data: maskSensitiveData(response.data)
         });
         return response;
       },
       (error: AxiosError) => {
         logger.error(`[${this.provider}] Response error: ${error.response?.status}`, {
-          data: error.response?.data
+          // Masquer les données sensibles dans les erreurs
+          data: maskSensitiveData(error.response?.data)
         });
         return Promise.reject(error);
       }

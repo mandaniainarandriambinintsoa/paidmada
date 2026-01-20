@@ -11,6 +11,7 @@ import dotenv from 'dotenv';
 import { PaidMada } from './paidmada';
 import { createRoutes, errorHandler } from './api/routes';
 import { logger } from './utils/logger';
+import { timingSafeCompare } from './utils/crypto';
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -62,11 +63,22 @@ const app = express();
 
 // Middlewares de sécurité
 app.use(helmet());
+
+// CORS - Plus restrictif
+const corsOrigins = process.env.ALLOWED_ORIGINS?.split(',').filter(Boolean);
 app.use(cors({
-  origin: NODE_ENV === 'production' ? process.env.ALLOWED_ORIGINS?.split(',') : '*',
+  origin: NODE_ENV === 'production'
+    ? (corsOrigins && corsOrigins.length > 0 ? corsOrigins : false)  // Bloquer si pas configuré en prod
+    : true,  // Autoriser en dev mais logger un warning
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  credentials: true
 }));
+
+// Warning si CORS non configuré en production
+if (NODE_ENV === 'production' && (!corsOrigins || corsOrigins.length === 0)) {
+  logger.warn('⚠️  ALLOWED_ORIGINS non configuré - CORS bloqué en production');
+}
 
 // Rate limiting
 const limiter = rateLimit({
@@ -100,12 +112,17 @@ const apiKeyAuth = (req: express.Request, res: express.Response, next: express.N
   const apiKey = req.get('X-API-Key');
   const secretKey = process.env.API_SECRET_KEY;
 
-  // Skip en dev ou si pas de clé configurée
-  if (NODE_ENV === 'development' || !secretKey) {
+  // Skip si pas de clé configurée (mode dev sans auth)
+  if (!secretKey) {
+    if (NODE_ENV === 'production') {
+      logger.warn('⚠️  API_SECRET_KEY non configuré en production!');
+    }
     return next();
   }
 
-  if (apiKey !== secretKey) {
+  // Vérification avec timing-safe comparison pour éviter les timing attacks
+  if (!apiKey || !timingSafeCompare(apiKey, secretKey)) {
+    logger.warn('Tentative d\'accès avec clé API invalide', { ip: req.ip });
     return res.status(401).json({
       success: false,
       error: {

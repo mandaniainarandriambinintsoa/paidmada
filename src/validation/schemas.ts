@@ -57,7 +57,59 @@ export const SmartPayRequestSchema = z.object({
   metadata: z.record(z.string()).optional()
 });
 
+// ============ CALLBACKS SCHEMAS ============
+
+// Callback MVola
+export const MVolaCallbackSchema = z.object({
+  transactionReference: z.string().optional(),
+  serverCorrelationId: z.string().optional(),
+  status: z.string().optional(),
+  transactionStatus: z.string().optional(),
+  amount: z.union([z.string(), z.number()]).optional(),
+  debitParty: z.array(z.object({
+    key: z.string().optional(),
+    value: z.string().optional()
+  })).optional(),
+  creditParty: z.array(z.object({
+    key: z.string().optional(),
+    value: z.string().optional()
+  })).optional(),
+  originalTransactionReference: z.string().optional()
+}).passthrough();
+
+// Callback Orange Money
+export const OrangeCallbackSchema = z.object({
+  order_id: z.string().optional(),
+  txnid: z.string().optional(),
+  status: z.string().optional(),
+  amount: z.union([z.string(), z.number()]).optional(),
+  message: z.string().optional()
+}).passthrough();
+
+// Callback Airtel Money
+export const AirtelCallbackSchema = z.object({
+  transaction: z.object({
+    id: z.string().optional(),
+    airtel_money_id: z.string().optional(),
+    status: z.string().optional(),
+    amount: z.union([z.string(), z.number()]).optional(),
+    msisdn: z.string().optional()
+  }).optional()
+}).passthrough();
+
+// Metadata avec limites de sécurité
+export const SecureMetadataSchema = z.record(
+  z.string().max(64, 'Clé metadata trop longue'),
+  z.string().max(256, 'Valeur metadata trop longue')
+).refine(
+  obj => Object.keys(obj).length <= 10,
+  'Maximum 10 champs metadata autorisés'
+).optional();
+
 // Types inférés
 export type PaymentRequestInput = z.infer<typeof PaymentRequestSchema>;
 export type StatusRequestInput = z.infer<typeof StatusRequestSchema>;
 export type SmartPayRequestInput = z.infer<typeof SmartPayRequestSchema>;
+export type MVolaCallbackInput = z.infer<typeof MVolaCallbackSchema>;
+export type OrangeCallbackInput = z.infer<typeof OrangeCallbackSchema>;
+export type AirtelCallbackInput = z.infer<typeof AirtelCallbackSchema>;
